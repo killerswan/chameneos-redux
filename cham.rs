@@ -17,6 +17,46 @@ type color = color_e;
 
 type creature_info = { name: uint, color: color };
 
+fn show_color(cc: color) -> str {
+   alt (cc) {
+      Red    {"red"}
+      Yellow {"yellow"}
+      Blue   {"blue"}
+   }
+}
+
+fn show_digit(nn: uint) -> str {
+   alt (nn) {
+      0 {"zero"}
+      1 {"one"}
+      2 {"two"}
+      3 {"three"}
+      4 {"four"}
+      5 {"five"}
+      6 {"six"}
+      7 {"seven"}
+      8 {"eight"}
+      9 {"nine"}
+      _ {fail "expected digits from 0 to 9..."}
+   }
+}
+
+fn show_number(nn: uint) -> str {
+   let mut out = "";
+   let mut num = nn;
+   let mut dig;
+   
+   if num == 0 { out = show_digit(0) };
+
+   while num != 0 {
+      dig = num % 10;
+      num = num / 10;
+      out = show_digit(dig) + " " + out;
+   }
+
+   ret out;
+}
+
 fn transform(aa: color, bb: color) -> color {
    alt (aa, bb) {
       (Red,    Red   ) { Red    }
@@ -69,7 +109,7 @@ fn rendezvous(nn: uint, set: ~[color]) {
    let mut creatures_met = 0;
    let mut creatures_present = 0;
 
-   // TODO: option type rather than invite bugs using these values
+   // TODO: option type rather than invite bugs if these values get used
    let mut first_creature = { name: 0, color: Red };
    let mut second_creature = { name: 0, color: Red };
 
@@ -95,10 +135,21 @@ fn rendezvous(nn: uint, set: ~[color]) {
       }
    }
 
+   // show each color in the set
+   for vec::eachi(set) |ii, col| {
+      io::print(show_color(col));
+      if ii + 1 < vec::len(set) { io::print(" "); }
+      else { io::print("\n"); }
+   }
+
    // tell each creature to stop
    for vec::eachi(to_creature) |ii, to_one| {
       comm::send(to_one, none);
    }
+
+   // show the number of creatures met
+   io::println(#fmt("%u", creatures_met));
+   io::println(show_number(creatures_met));
 }
 
 fn main(args: ~[str]) {
