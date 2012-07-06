@@ -8,35 +8,6 @@ import std::map;
 import std::map::hashmap;
 import std::sort;
 
-/*
-fn make_sequence_processor(sz: uint, from_parent: comm::port<~[u8]>,
-                           to_parent: comm::chan<str>) {
-   
-   let freqs: hashmap<~[u8], uint> = map::bytes_hash();
-   let mut carry: ~[u8] = ~[];
-   let mut total: uint = 0u;
-
-   let mut line: ~[u8];
-
-   loop {
-
-      line = comm::recv(from_parent);
-      if line == ~[] { break; }
-
-       carry = windows_with_carry(carry + line, sz, |window| {
-         update_freq(freqs, window);
-         total += 1u;
-      });
-   }
-
-   let buffer = alt sz { 
-   };
-
-   //comm::send(to_parent, #fmt["yay{%u}", sz]);
-   comm::send(to_parent, buffer);
-}
-*/
-
 fn print_complements() {
 }
 
@@ -124,64 +95,10 @@ fn rendezvous(nn: uint, set: ~[color]) {
       }
    }
 
+   // tell each creature to stop
    for vec::eachi(to_creature) |ii, to_one| {
       comm::send(to_one, none);
    }
-
-   // tell each creature to stop
-         
-
-
-
-/*
-   
-   // latch stores true after we've started
-   // reading the sequence of interest
-   let mut proc_mode = false;
-
-   while !rdr.eof() {
-      let line: str = rdr.read_line();
-
-      if str::len(line) == 0u { cont; }
-
-      alt (line[0], proc_mode) {
-
-         // start processing if this is the one
-         ('>' as u8, false) {
-            alt str::find_str_from(line, "THREE", 1u) {
-               option::some(_) { proc_mode = true; }
-               option::none    { }
-            }
-         }
-
-         // break our processing
-         ('>' as u8, true) { break; }
-
-         // process the sequence for k-mers
-         (_, true) {
-            let line_bytes = str::bytes(line);
-
-           for sizes.eachi |ii, _sz| {
-               let mut lb = line_bytes;
-               comm::send(to_child[ii], lb);
-            }
-         }
-
-         // whatever
-         _ { }
-      }
-   }
-
-   // finish...
-    for sizes.eachi |ii, _sz| {
-      comm::send(to_child[ii], ~[]);
-   }
-
-   // now fetch and print result messages
-    for sizes.eachi |ii, _sz| {
-      io::println(comm::recv(from_child[ii]));
-   }
-*/
 }
 
 fn main(args: ~[str]) {
