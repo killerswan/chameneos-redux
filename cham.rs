@@ -139,9 +139,8 @@ fn rendezvous(nn: uint, set: ~[color]) {
    let mut creatures_met = 0;
    let mut creatures_present = 0;
 
-   // TODO: option type rather than invite bugs if these values get used
-   let mut first_creature = { name: 0, color: Red };
-   let mut second_creature = { name: 0, color: Red };
+   let mut first_creature  = { name: 0, color: Red }; // use option type instead
+   let mut second_creature = { name: 0, color: Red }; // of initializing to junk?
 
    // set up meetings...
    while meetings < nn {
