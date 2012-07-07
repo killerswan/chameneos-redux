@@ -25,6 +25,16 @@ fn show_color(cc: color) -> str {
    }
 }
 
+fn show_color_list(set: ~[color]) -> str {
+   let mut out = "";
+   let lasti = vec::len(set) - 1;
+   for vec::eachi(set) |ii, col| {
+      out += show_color(col);
+      if ii < lasti { out += " "; }
+   }
+   ret out;
+}
+
 fn show_digit(nn: uint) -> str {
    alt (nn) {
       0 {"zero"}
@@ -75,9 +85,12 @@ fn creature(
    name: uint,
    color: color,
    from_rendezvous: comm::port<option<creature_info>>,
-   to_rendezvous: comm::chan<creature_info>
+   to_rendezvous: comm::chan<creature_info>,
+   to_rendezvous_log: comm::chan<str>
 ) {
    let mut color = color;
+   let mut creatures_met = 0;
+   let mut evil_clones_met = 0;
 
    loop {
       // ask for a pairing
@@ -87,21 +100,33 @@ fn creature(
       // log and change, or print and quit
       alt resp {
          option::some(other_creature) {
-            io::print("x");
             color = transform(color, other_creature.color);
+
+            // track some statistics
+            creatures_met += 1;
+            if other_creature.name == name {
+               evil_clones_met += 1;
+            }
          }
-         option::none { break; }
+         option::none {
+            // log creatures met and evil clones of self
+            let report = #fmt("%u", creatures_met) + " " + show_number(evil_clones_met);
+            comm::send(to_rendezvous_log, report);
+            break;
+         }
       }
    }
 }
 
 fn rendezvous(nn: uint, set: ~[color]) {
-   let from_creatures: comm::port<creature_info> = comm::port();
-   let to_rendezvous = comm::chan(from_creatures);
+   let from_creatures:     comm::port<creature_info> = comm::port();
+   let from_creatures_log: comm::port<str> = comm::port();
+   let to_rendezvous     = comm::chan(from_creatures);
+   let to_rendezvous_log = comm::chan(from_creatures_log);
    let to_creature: ~[comm::chan<option<creature_info>>] =
       vec::mapi(set, fn@(ii: uint, col: color) -> comm::chan<option<creature_info>> {
          ret do task::spawn_listener |from_rendezvous| {
-            creature(ii, col, from_rendezvous, to_rendezvous);
+            creature(ii, col, from_rendezvous, to_rendezvous, to_rendezvous_log);
          };
       });
 
@@ -124,7 +149,6 @@ fn rendezvous(nn: uint, set: ~[color]) {
              creatures_present = 1;
            }
          1 {
-             io::print(".");
              second_creature = creature_req;
              comm::send(to_creature[first_creature.name], some(second_creature));
              comm::send(to_creature[second_creature.name], some(first_creature));
@@ -135,21 +159,29 @@ fn rendezvous(nn: uint, set: ~[color]) {
       }
    }
 
-   // show each color in the set
-   for vec::eachi(set) |ii, col| {
-      io::print(show_color(col));
-      if ii + 1 < vec::len(set) { io::print(" "); }
-      else { io::print("\n"); }
-   }
-
    // tell each creature to stop
    for vec::eachi(to_creature) |ii, to_one| {
       comm::send(to_one, none);
    }
 
-   // show the number of creatures met
-   io::println(#fmt("%u", creatures_met));
+   // save each creature's meeting stats
+   let mut report = ~[];
+   for vec::each(to_creature) |_to_one| {
+      vec::push(report, comm::recv(from_creatures_log));
+   }
+
+   // print each color in the set
+   io::println(show_color_list(set));
+
+   // print each creature's stats
+   for vec::each(report) |rep| {
+      io::println(rep);
+   }
+
+   // print the total number of creatures met
    io::println(show_number(creatures_met));
+
+   io::println("");
 }
 
 fn main(args: ~[str]) {
