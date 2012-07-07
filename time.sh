@@ -1,1 +1,1 @@
-time ./cham 6000000
+time ./shootout-chameneos-redux 6000000
