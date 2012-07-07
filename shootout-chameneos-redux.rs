@@ -46,6 +46,29 @@ mod stream {
             x
         }
     }
+
+   fn select<T:send>(ps: ~[port<T>]) -> (uint, T) {
+         // endp swapping
+         let mut endps;
+         for vec::each(ps) |pp| {
+            let mut endp = none;
+            endp <-> pp.endp;
+            vec::push(endps, endp);
+         }
+
+         let unwrapped_endps = vec::map(endps, |x| unwrap(x));
+
+         let (ready, result, remaining) = pipes::select(unwrapped_endps);
+         let streamp::data(x, endp) = unwrap(result);
+
+         // endp swapping
+         for vec::eachi(ps) |ii, pp| {
+            pp.endp = some(endps[ii]);
+         }
+
+         (ready, x)
+      }
+
 }
 
 fn print_complements() {
@@ -164,16 +187,28 @@ fn creature(
 }
 
 fn rendezvous(nn: uint, set: ~[color]) {
-   let from_creatures:     comm::port<creature_info> = comm::port();
-   let from_creatures_log: comm::port<str> = comm::port();
-   let to_rendezvous     = comm::chan(from_creatures);
-   let to_rendezvous_log = comm::chan(from_creatures_log);
-   let to_creature: ~[comm::chan<option<creature_info>>] =
-      vec::mapi(set, fn@(ii: uint, col: color) -> comm::chan<option<creature_info>> {
-         ret do task::spawn_listener |from_rendezvous| {
-            creature(ii, col, from_rendezvous, to_rendezvous, to_rendezvous_log);
-         };
-      });
+   let streams = vec::map(set, |_col| some(stream()));
+   let streams = vec::to_mut(streams);
+   let mut from_creatures     = ~[];
+   let mut from_creatures_log = ~[];
+
+   let to_creature = vec::mapi(set, |ii, col| {
+      let mut stream = none;
+      stream <-> streams[ii];
+      let (to_rendezvous_, from_creature_) = option::unwrap(stream);
+      let (to_rendezvous_LOG_, from_creature_LOG_) = option::unwrap(stream);
+
+      vec::push(from_creatures, from_creature_);
+      vec::push(from_creatures_log, from_creature_LOG_);
+
+      let (to_creature, from_rendezvous) = stream::stream();
+
+      do task::spawn_with(from_rendezvous) |from_parent| {
+         creature(ii, col, from_rendezvous, to_rendezvous_, to_rendezvous_LOG_);
+      };
+
+      to_creature
+   });
 
    let mut meetings = 0;
    let mut creatures_met = 0;
