@@ -48,26 +48,26 @@ mod stream {
     }
 
    fn select<T:send>(ps: ~[port<T>]) -> (uint, T) {
-         // endp swapping
-         let mut endps;
-         for vec::each(ps) |pp| {
-            let mut endp = none;
-            endp <-> pp.endp;
-            vec::push(endps, endp);
-         }
-
-         let unwrapped_endps = vec::map(endps, |x| unwrap(x));
-
-         let (ready, result, remaining) = pipes::select(unwrapped_endps);
-         let streamp::data(x, endp) = unwrap(result);
-
-         // endp swapping
-         for vec::eachi(ps) |ii, pp| {
-            pp.endp = some(endps[ii]);
-         }
-
-         (ready, x)
+      // endp swapping
+      let mut endps;
+      for vec::each(ps) |pp| {
+         let mut endp = none;
+         endp <-> pp.endp;
+         vec::push(endps, endp);
       }
+
+      let unwrapped_endps = vec::map(endps, |x| unwrap(x));
+
+      let (ready, result, remaining) = pipes::select(unwrapped_endps);
+      let streamp::data(x, (endps[ready])) = unwrap(result);
+
+      // endp swapping
+      for vec::eachi(ps) |ii, pp| {
+         pp.endp = some(endps[ii]);
+      }
+
+      (ready, x)
+   }
 
 }
 
@@ -162,7 +162,7 @@ fn creature(
 
    loop {
       // ask for a pairing
-      comm::send(to_rendezvous, {name: name, color: color});
+      to_rendezvous.send({name: name, color: color});
       let resp = from_rendezvous.recv();
 
       // log and change, or print and quit
@@ -190,13 +190,19 @@ fn rendezvous(nn: uint, set: ~[color]) {
    let streams = vec::map(set, |_col| some(stream()));
    let streams = vec::to_mut(streams);
    let mut from_creatures     = ~[];
+
+   let streams_log = vec::map(set, |_col| some(stream()));
+   let streams_log = vec::to_mut(streams_log);
    let mut from_creatures_log = ~[];
 
    let to_creature = vec::mapi(set, |ii, col| {
       let mut stream = none;
       stream <-> streams[ii];
       let (to_rendezvous_, from_creature_) = option::unwrap(stream);
-      let (to_rendezvous_LOG_, from_creature_LOG_) = option::unwrap(stream);
+
+      let mut stream_log = none;
+      stream_log <-> streams_log[ii];
+      let (to_rendezvous_LOG_, from_creature_LOG_) = option::unwrap(stream_log);
 
       vec::push(from_creatures, from_creature_);
       vec::push(from_creatures_log, from_creature_LOG_);
@@ -219,7 +225,7 @@ fn rendezvous(nn: uint, set: ~[color]) {
 
    // set up meetings...
    while meetings < nn {
-      let creature_req: creature_info = from_creatures.recv();
+      let (_creature_num, creature_req): (uint, creature_info) = stream::select(from_creatures);
       creatures_met += 1;
 
       alt creatures_present {
@@ -244,16 +250,18 @@ fn rendezvous(nn: uint, set: ~[color]) {
    }
 
    // save each creature's meeting stats
-   let mut report = ~[];
+   // note, the order isn't important, it doesn't need to be vec::each
+   let mut reports = ~[];
    for vec::each(to_creature) |_to_one| {
-      vec::push(report, from_creatures_log.recv());
+      let (_num, report): (uint, str) = stream::select(from_creatures_log);
+      vec::push(reports, report);
    }
 
    // print each color in the set
    io::println(show_color_list(set));
 
    // print each creature's stats
-   for vec::each(report) |rep| {
+   for vec::each(reports) |rep| {
       io::println(rep);
    }
 
