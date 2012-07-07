@@ -7,6 +7,46 @@ use std;
 import std::map;
 import std::map::hashmap;
 import std::sort;
+import stream::{stream, chan, port};
+
+// After a snapshot, this should move into core, or std.
+mod stream {
+    import option::unwrap;
+
+    proto! streamp {
+        open:send<T: send> {
+            data(T) -> open<T>
+        }
+    }
+
+    type chan<T:send> = { mut endp: option<streamp::client::open<T>> };
+    type port<T:send> = { mut endp: option<streamp::server::open<T>> };
+
+    fn stream<T:send>() -> (chan<T>, port<T>) {
+        let (c, s) = streamp::init();
+        ({ mut endp: some(c) }, { mut endp: some(s) })
+    }
+
+    impl chan<T: send> for chan<T> {
+        fn send(+x: T) {
+            let mut endp = none;
+            endp <-> self.endp;
+            self.endp = some(
+                streamp::client::data(unwrap(endp), x))
+        }
+    }
+
+    impl port<T: send> for port<T> {
+        fn recv() -> T {
+            let mut endp = none;
+            endp <-> self.endp;
+            let streamp::data(x, endp) = unwrap(
+                pipes::recv(unwrap(endp)));
+            self.endp = some(endp);
+            x
+        }
+    }
+}
 
 fn print_complements() {
    let all = ~[Blue, Red, Yellow];
@@ -89,9 +129,9 @@ fn transform(aa: color, bb: color) -> color {
 fn creature(
    name: uint,
    color: color,
-   from_rendezvous: comm::port<option<creature_info>>,
-   to_rendezvous: comm::chan<creature_info>,
-   to_rendezvous_log: comm::chan<str>
+   from_rendezvous: stream::port<option<creature_info>>,
+   to_rendezvous: stream::chan<creature_info>,
+   to_rendezvous_log: stream::chan<str>
 ) {
    let mut color = color;
    let mut creatures_met = 0;
@@ -100,7 +140,7 @@ fn creature(
    loop {
       // ask for a pairing
       comm::send(to_rendezvous, {name: name, color: color});
-      let resp = comm::recv(from_rendezvous);
+      let resp = from_rendezvous.recv();
 
       // log and change, or print and quit
       alt resp {
@@ -116,7 +156,7 @@ fn creature(
          option::none {
             // log creatures met and evil clones of self
             let report = #fmt("%u", creatures_met) + " " + show_number(evil_clones_met);
-            comm::send(to_rendezvous_log, report);
+            to_rendezvous_log.send(report);
             break;
          }
       }
@@ -144,7 +184,7 @@ fn rendezvous(nn: uint, set: ~[color]) {
 
    // set up meetings...
    while meetings < nn {
-      let creature_req: creature_info = comm::recv(from_creatures);
+      let creature_req: creature_info = from_creatures.recv();
       creatures_met += 1;
 
       alt creatures_present {
@@ -154,8 +194,8 @@ fn rendezvous(nn: uint, set: ~[color]) {
            }
          1 {
              second_creature = creature_req;
-             comm::send(to_creature[first_creature.name], some(second_creature));
-             comm::send(to_creature[second_creature.name], some(first_creature));
+             to_creature[first_creature.name].send(some(second_creature));
+             to_creature[second_creature.name].send(some(first_creature));
              creatures_present = 0;
              meetings += 1;
            }
@@ -165,13 +205,13 @@ fn rendezvous(nn: uint, set: ~[color]) {
 
    // tell each creature to stop
    for vec::eachi(to_creature) |ii, to_one| {
-      comm::send(to_one, none);
+      to_one.send(none);
    }
 
    // save each creature's meeting stats
    let mut report = ~[];
    for vec::each(to_creature) |_to_one| {
-      vec::push(report, comm::recv(from_creatures_log));
+      vec::push(report, from_creatures_log.recv());
    }
 
    // print each color in the set
