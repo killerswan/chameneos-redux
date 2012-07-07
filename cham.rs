@@ -196,8 +196,10 @@ fn main(args: ~[str]) {
 
    print_complements();
    io::println("");
+
    rendezvous(nn, ~[Blue, Red, Yellow]);
    io::println("");
+
    rendezvous(nn, ~[Blue, Red, Yellow, Red, Yellow, Blue, Red, Yellow, Red, Blue]);
 }
 
