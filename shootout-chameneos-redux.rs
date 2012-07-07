@@ -63,9 +63,6 @@ mod stream {
 
       // endp swapping
       ps[ready].endp = some(ep);
-      //for vec::eachi(ps) |ii, pp| {
-      //   pp.endp = some(endps[ii]);
-      //}
 
       (ready, x)
    }
