@@ -48,23 +48,24 @@ mod stream {
     }
 
    fn select<T:send>(ps: ~[port<T>]) -> (uint, T) {
-      // endp swapping
-      let mut endps;
+      // endp swapping,
+      // make a vector of endpoints
+      let mut endps = [];
       for vec::each(ps) |pp| {
          let mut endp = none;
          endp <-> pp.endp;
-         vec::push(endps, endp);
+         vec::push(endps, unwrap(endp));
       }
 
-      let unwrapped_endps = vec::map(endps, |x| unwrap(x));
-
-      let (ready, result, remaining) = pipes::select(unwrapped_endps);
-      let streamp::data(x, (endps[ready])) = unwrap(result);
+      // select
+      let (ready, result, remaining) = pipes::select(endps);
+      let streamp::data(x, ep) = unwrap(result);
 
       // endp swapping
-      for vec::eachi(ps) |ii, pp| {
-         pp.endp = some(endps[ii]);
-      }
+      ps[ready].endp = some(ep);
+      //for vec::eachi(ps) |ii, pp| {
+      //   pp.endp = some(endps[ii]);
+      //}
 
       (ready, x)
    }
@@ -209,8 +210,8 @@ fn rendezvous(nn: uint, set: ~[color]) {
 
       let (to_creature, from_rendezvous) = stream::stream();
 
-      do task::spawn_with(from_rendezvous) |from_parent| {
-         creature(ii, col, from_rendezvous, to_rendezvous_, to_rendezvous_LOG_);
+      do task::spawn_with(from_rendezvous) |from_rendezvous_| {
+         creature(ii, col, from_rendezvous_, to_rendezvous_, to_rendezvous_LOG_);
       };
 
       to_creature
