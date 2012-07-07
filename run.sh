@@ -1,1 +1,1 @@
-time ndiff -fields 2-10 chameneosredux-output.txt <(./cham 600)
+time ndiff -fields 2-10 chameneosredux-output.txt <(./shootout-chameneos-redux 600)

@@ -50,7 +50,7 @@ mod stream {
    fn select<T:send>(ps: ~[port<T>]) -> (uint, T) {
       // endp swapping,
       // make a vector of endpoints
-      let mut endps = [];
+      let mut endps = ~[];
       for vec::each(ps) |pp| {
          let mut endp = none;
          endp <-> pp.endp;
@@ -58,7 +58,7 @@ mod stream {
       }
 
       // select
-      let (ready, result, remaining) = pipes::select(endps);
+      let (ready, result, _remaining) = pipes::select(endps);
       let streamp::data(x, ep) = unwrap(result);
 
       // endp swapping
@@ -97,7 +97,7 @@ fn show_color(cc: color) -> str {
 
 fn show_color_list(set: ~[color]) -> str {
    let mut out = "";
-   for vec::eachi(set) |ii, col| {
+   for vec::each(set) |col| {
       out += " ";
       out += show_color(col);
    }
@@ -246,7 +246,7 @@ fn rendezvous(nn: uint, set: ~[color]) {
    }
 
    // tell each creature to stop
-   for vec::eachi(to_creature) |ii, to_one| {
+   for vec::each(to_creature) |to_one| {
       to_one.send(none);
    }
 
