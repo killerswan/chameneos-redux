@@ -9,6 +9,12 @@ import std::map::hashmap;
 import std::sort;
 
 fn print_complements() {
+   let all = ~[Blue, Red, Yellow];
+   for vec::each(all) |aa| {
+      for vec::each(all) |bb| {
+         io::println(show_color(aa) + " + " + show_color(bb) + " -> " + show_color(transform(aa,bb)));
+      }
+   }
 }
 
 // can I combine these two lines?
@@ -27,10 +33,9 @@ fn show_color(cc: color) -> str {
 
 fn show_color_list(set: ~[color]) -> str {
    let mut out = "";
-   let lasti = vec::len(set) - 1;
    for vec::eachi(set) |ii, col| {
+      out += " ";
       out += show_color(col);
-      if ii < lasti { out += " "; }
    }
    ret out;
 }
@@ -180,20 +185,19 @@ fn rendezvous(nn: uint, set: ~[color]) {
 
    // print the total number of creatures met
    io::println(show_number(creatures_met));
-
-   io::println("");
 }
 
 fn main(args: ~[str]) {
    let nn = if os::getenv("RUST_BENCH").is_some() {
       600
    } else {
-      // TODO: convert arg0 to uint
-      600
+      option::get(uint::from_str(args[1]))
    };
 
    print_complements();
+   io::println("");
    rendezvous(nn, ~[Blue, Red, Yellow]);
+   io::println("");
    rendezvous(nn, ~[Blue, Red, Yellow, Red, Yellow, Blue, Red, Yellow, Red, Blue]);
 }
 
